@@ -1,18 +1,33 @@
 package com.agilogy.wapl
 
-type Parser[A] = (String, Int) => Either[ParseError, A]
+import scala.annotation.tailrec
 
-def string(token: String): Parser[Int] = (s, position) =>
-  if (s.startsWith(token, position)) Right(position + token.length) else Left(ParseError(s, position, token))
+type Parser[A] = (String, Int) => Either[ParseError, (Int, A)]
 
-implicit class ParserOps[A](self: Parser[A]):
+def string(token: String): Parser[Unit] = (s, position) =>
+  if (s.startsWith(token, position)) Right((position + token.length, ())) else Left(ParseError(s, position, token))
+def many[A](parser: Parser[A]): Parser[List[A]] = {
+  @tailrec
+  def go(acc: List[A], parser: Parser[A], s: String, position: Int): (Int, List[A])= parser(s, position) match {
+    case Right((newPos, value)) => go(acc :+ value, parser, s, newPos)
+    case Left(_) => (position, acc)
+  }
+  (s, position) => Right(go(List.empty, parser, s, position))
+}
+
+extension[A](self: Parser[A])
   def map[B](f: A => B): Parser[B] = (s, position) =>
-    self(s, position).map(f)
-
-implicit class IntParserOps(self: Parser[Int]):
-  infix def sequence(other: Parser[Int]): Parser[Int] = (s, position) =>
+    self(s, position).map((pos, a) => (pos,f(a)))
+  def |(other:Parser[A]): Parser[A] = (s, position) => self(s,position) orElse other(s,position)
+  def *>[B](other: Parser[B]): Parser[B] = (s, position) =>
     for
-      ia <- self(s, position)
-      ib <- other(s, ia)
-    yield ib
-  def **(other: Parser[Int]): Parser[Int] = sequence(other)
+      res1 <- self(s, position)
+      res2 <- other(s, res1._1)
+    yield (res2._1, res2._2)
+  def <*[B](other: Parser[B]): Parser[A] = (s, position) => for {
+    res1 <- self(s, position)
+    res2 <- other(s, res1._1)
+  } yield (res2._1, res1._2)
+  def * : Parser[List[A]] = many(self)
+
+
