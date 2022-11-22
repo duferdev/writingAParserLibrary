@@ -18,6 +18,7 @@ def many[A](parser: Parser[A]): Parser[List[A]] = {
 extension[A](self: Parser[A])
   def map[B](f: A => B): Parser[B] = (s, position) =>
     self(s, position).map((pos, a) => (pos,f(a)))
+  def as[B](b: B): Parser[B] = self.map(_ => b)
   def |(other:Parser[A]): Parser[A] = (s, position) => self(s,position) orElse other(s,position)
   def *>[B](other: Parser[B]): Parser[B] = (s, position) =>
     for
