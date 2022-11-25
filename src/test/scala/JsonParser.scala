@@ -10,7 +10,9 @@ object JsonParser:
   val falseBoolean: Parser[JsonBoolean] = string("false").as(JsonBoolean(false))
   val boolean: Parser[JsonBoolean] = trueBoolean | falseBoolean
 
-  val arrayItems: Parser[List[JsonBoolean]] = ((boolean <* whitespace <* string(",") <* whitespace) | boolean)*
+  val arrayItems: Parser[List[JsonBoolean]] = (boolean ** ((whitespace *> string(",") *> whitespace *> boolean)*)).map{
+    case (boolean, acc) => boolean :: acc
+  }
   val array: Parser[JsonArray] =
-    (string("[") *> whitespace *> arrayItems <* whitespace <* string("]"))
+    (string("[") *> whitespace *> (arrayItems | pure(List.empty[JsonBoolean])) <* whitespace <* string("]"))
       .map(JsonArray.apply)
